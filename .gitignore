@@ -7,3 +7,4 @@
 .ipynb_checkpoints/dde_test-checkpoint.ipynb
 .ipynb_checkpoints/data_processing-checkpoint.ipynb
 data/.DS_Store
+*.pyc
