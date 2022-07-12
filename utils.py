@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.optimize import root_scalar, minimize
+from scipy.signal import find_peaks
 
 def find_defects(datasets): 
     for dataset in datasets:
@@ -103,3 +105,36 @@ def collect_dataset(phases, breakpoints):
     dataset['length'] = np.array(dataset['length'])
     dataset['phase'] = np.array(dataset['phase'])
     return dataset
+
+def calculate_gradients(phases):
+    z = np.exp(phases*1j) 
+    dpdx = np.imag((z[2:]-z[:-2])/2/z[1:-1])
+    return dpdx 
+
+def smooth(phases, width): 
+    z = np.exp(phases*1j)
+    z_smooth = np.convolve(z, np.ones(width), mode='valid')/width
+    theta_smooth = np.angle(z_smooth) % (2*np.pi)
+    return theta_smooth 
+
+def shift(phases, tol=1): 
+    z = np.exp(phases*1j) 
+    diff_z = np.abs(z[1:]-z[:-1])
+    diff_ang = phases[1:]-phases[:-1]
+    for (i, (dz, dtheta)) in enumerate(zip(diff_z, diff_ang)): 
+        if np.abs(dtheta) - dz > tol:  
+            if dtheta < 0:
+                phases[i+1:] += np.pi*2
+            else: 
+                phases[i+1:] -= np.pi*2 
+
+def find_turning_points(phases, prominence): 
+    peaks, _ = find_peaks(phases, prominence=prominence)
+    peaks_2, _ = find_peaks(-phases, prominence=prominence)
+    return np.concatenate([peaks, peaks_2])
+
+
+
+
+
+

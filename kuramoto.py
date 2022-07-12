@@ -56,10 +56,7 @@ class Kuramoto():
     def _coupling(self, theta): 
         return np.sin(theta) + self.gamma*(1-np.cos(theta))
 
-    def _det_rhs(self, theta): 
-        d_theta_1 = (np.roll(theta, 1) - theta ) % (2*np.pi) 
-        d_theta_2 = (np.roll(theta, -1) - theta ) % (2*np.pi)
-        rhs = self.epsilon*(self._coupling(d_theta_1)+self._coupling(d_theta_2))+self.omegas
+    def _apply_bc(self, rhs): 
         if self.BC == "fixed": 
             rhs[0] = 0 
             rhs[-1] = 0
@@ -67,7 +64,30 @@ class Kuramoto():
             rhs[0] = self.omegas[0]
             rhs[-1] = self.omegas[-1]
         return rhs 
-    
+
+    def _det_rhs(self, theta): 
+        d_theta_1 = (np.roll(theta, 1) - theta ) % (2*np.pi) 
+        d_theta_2 = (np.roll(theta, -1) - theta ) % (2*np.pi)
+        rhs = self.epsilon*(self._coupling(d_theta_1)+self._coupling(d_theta_2))+self.omegas
+        rhs = self._apply_bc(rhs) 
+        return rhs 
+
+class KuramotoNetwork(Kuramoto): 
+
+    def initialise(self, L, T, dt, n_batches, network_matrix, seed=None): 
+        super().initialise(L, T, dt, n_batches, seed=None)
+        self.M = np.copy(network_matrix)
+        self.M += np.eye(L, k=1) + np.eye(L, k=-1)
+
+    def _det_rhs(self, theta): 
+        rhs = np.copy(self.omegas)
+        for i in range(self.L): 
+            for j in range(self.L): 
+                if self.M[i, j] > 0:
+                    d_theta = theta[j] -  theta[i]
+                    rhs[i] += self.epsilon*(self._coupling(d_theta))
+        rhs = self._apply_bc(rhs) 
+        return rhs 
     
 class Kuramoto2D(Kuramoto): 
     

@@ -8,3 +8,6 @@
 .ipynb_checkpoints/data_processing-checkpoint.ipynb
 data/.DS_Store
 *.pyc
+*.ipynb
+*.pdf
+*.npy
