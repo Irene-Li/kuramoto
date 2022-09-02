@@ -6,15 +6,17 @@ from numpy.random import RandomState, SeedSequence
 
 class Kuramoto():
     
-    def __init__(self, epsilon, gamma, sigma, mean_omega, BC="fixed"):
+    def __init__(self, epsilon, gamma, sigma, mean_omega, BC="fixed", grad=None):
         # Initialises the class with the model parameters 
         self.epsilon = epsilon 
         self.gamma = gamma 
         self.sigma = sigma
         self.mean_omega = mean_omega 
         self.BC = BC
+        if BC == 'grad': 
+            self.grad = grad 
         
-    def initialise(self, L, T, dt, n_batches, seed=None): 
+    def initialise(self, L, T, dt, n_batches, init=None, seed=None): 
         # Set up the simulation parameters 
         self.L = int(L) 
         self.size = int(L)
@@ -28,12 +30,16 @@ class Kuramoto():
         else: 
             rs = RandomState(MT19937(SeedSequence(seed)))
             self.omegas = self.sigma*rs.normal(size=(L)) + self.mean_omega 
+        if init is not None: 
+            self.initial_state = init 
+        else: 
+            self.initial_state = np.zeros((self.L))
 
     def evolve(self, verbose=False):
         # The core function that integrates the ODEs forward. 
         
         self.res = np.zeros((self.n_batches, self.size))
-        theta = np.zeros((self.size))
+        theta = np.copy(self.initial_state) 
         n = 0 
         
         small_batch = self.batch_size
@@ -56,20 +62,23 @@ class Kuramoto():
     def _coupling(self, theta): 
         return np.sin(theta) + self.gamma*(1-np.cos(theta))
 
-    def _apply_bc(self, rhs): 
+    def _coupling2(self, theta): 
+        return theta + self.gamma*theta**2/2
+
+    def _apply_bc(self, rhs, theta): 
         if self.BC == "fixed": 
             rhs[0] = 0 
-            rhs[-1] = 0
-        if self.BC == "open": 
-            rhs[0] = self.omegas[0]
-            rhs[-1] = self.omegas[-1]
+            rhs[-1] = 0 
+        if self.BC == "grad": 
+            rhs[0] = self.omegas[0] + self.epsilon*(self._coupling(-self.grad[0])+self._coupling(theta[1]-theta[0]))
+            rhs[-1] = self.omegas[-1] +self.epsilon*(self._coupling(self.grad[1])+self._coupling(theta[-2]-theta[-1]))
         return rhs 
 
     def _det_rhs(self, theta): 
-        d_theta_1 = (np.roll(theta, 1) - theta ) % (2*np.pi) 
-        d_theta_2 = (np.roll(theta, -1) - theta ) % (2*np.pi)
+        d_theta_1 = np.roll(theta, 1) - theta 
+        d_theta_2 = np.roll(theta, -1) - theta 
         rhs = self.epsilon*(self._coupling(d_theta_1)+self._coupling(d_theta_2))+self.omegas
-        rhs = self._apply_bc(rhs) 
+        rhs = self._apply_bc(rhs, theta) 
         return rhs 
 
 class KuramotoNetwork(Kuramoto): 

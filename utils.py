@@ -1,6 +1,10 @@
 import numpy as np
 from scipy.optimize import root_scalar, minimize
 from scipy.signal import find_peaks
+import pandas as pd
+from scipy.stats import norm
+from scipy.stats import gamma as gamma_dist
+from matplotlib import pyplot as plt 
 
 def find_defects(datasets): 
     for dataset in datasets:
@@ -117,6 +121,15 @@ def smooth(phases, width):
     theta_smooth = np.angle(z_smooth) % (2*np.pi)
     return theta_smooth 
 
+def smooth2(phases, width): 
+    z = np.exp(phases*1j)
+    N = len(z)
+    length = int(np.floor(N/width))
+    z = z[:length*width]
+    z_smooth = np.mean(z.reshape((length, width)), -1)
+    theta_smooth = np.angle(z_smooth) % (2*np.pi)
+    return theta_smooth 
+
 def shift(phases, tol=1): 
     z = np.exp(phases*1j) 
     diff_z = np.abs(z[1:]-z[:-1])
@@ -132,6 +145,86 @@ def find_turning_points(phases, prominence):
     peaks, _ = find_peaks(phases, prominence=prominence)
     peaks_2, _ = find_peaks(-phases, prominence=prominence)
     return np.concatenate([peaks, peaks_2])
+
+
+def plot(freqs, gamma, sigma):     
+    plt.hist(freqs, bins=10, density=True, alpha=0.6, color='g')
+    xmin, xmax = plt.xlim()
+    x = np.linspace(xmin, xmax, 100)
+    p = norm.pdf(x, 0, sigma)
+    plt.plot(x, p, 'k', linewidth=2)
+    plt.show() 
+    
+def Gamma(x, gamma): 
+    return np.sin(x) + gamma*(1-np.cos(x))
+
+def get_freqs(data, gamma):
+    N = len(data)
+    Omega = 2*gamma*np.sum(1 - np.cos(data[1:] - data[:-1]))/N
+    freqs = Omega - Gamma(data[2:]-data[1:-1], gamma) - Gamma(data[:-2]-data[1:-1],gamma)
+    return freqs 
+
+def minus_log_likelihood(data, gamma):
+    freqs = get_freqs(data, gamma)
+    std = np.sqrt(np.sum(freqs**2)/len(freqs))
+    return -np.sum(norm.logpdf(freqs, 0, std))
+
+def minus_log_prior(gamma, alpha, beta):
+    return -gamma_dist.logpdf(gamma, alpha, scale=1/beta)
+
+def MAP_sigma(data, gamma): 
+    freqs = get_freqs(data, gamma)
+    return np.sqrt(np.sum(freqs**2)/len(freqs))
+
+def MAP_gamma(data, alpha, beta): 
+    f = lambda x: minus_log_likelihood(data, x) + minus_log_prior(x, alpha, beta)
+    res = minimize(f, 0.1)
+    return res.x[0]
+
+def errors(data, map_gamma, map_sigma, alpha, beta):
+
+    def f(gamma, sigma):
+        freqs = get_freqs(data, gamma)
+        a = -np.sum(norm.logpdf(freqs, 0, sigma))
+        b = minus_log_prior(gamma, alpha, beta)
+        return a + b 
+
+    gamma_step = 1e-5
+    sigma_step = 1e-5 
+    MAP_val = f(map_gamma, map_sigma)
+    
+    test_gammas = [map_gamma+gamma_step, map_gamma, map_gamma-gamma_step]
+    test_sigmas = [map_sigma+sigma_step, map_sigma, map_sigma-sigma_step]
+    
+    test_vals = np.reshape([f(x, y) for x in test_gammas for y in test_sigmas], (3, 3))
+    hess = np.zeros((2, 2))
+    hess[0, 0] = (test_vals[0, 1] + test_vals[2, 1] - 2*test_vals[1, 1])/(gamma_step*gamma_step)
+    hess[1, 1] = (test_vals[1, 0] + test_vals[1, 2] - 2*test_vals[1, 1])/(sigma_step*sigma_step)
+    hess[1, 0] = (test_vals[2, 2] + test_vals[0, 0] - test_vals[2, 0] - test_vals[0, 2])/(4*gamma_step*sigma_step)
+    hess[0, 1] = hess[1, 0]
+    cov_mat = np.linalg.inv(hess)
+    return np.sqrt(cov_mat[0, 0]), np.sqrt(cov_mat[1, 1])
+
+
+def plot_posterior(data, alpha, beta):
+    f = lambda x: minus_log_likelihood(data, x) + minus_log_prior(x, alpha, beta)
+    gammas = np.linspace(0, 1, 100)
+    plt.plot(gammas, list(map(f, gammas)))
+    plt.show() 
+    
+    
+def plot_prior(alpha, beta):
+    f = lambda x: minus_log_prior(x, alpha, beta)
+    gammas = np.linspace(0, 1, 100)
+    plt.plot(gammas, list(map(f, gammas)))
+    plt.show() 
+
+
+
+
+
+
+
 
 
 
