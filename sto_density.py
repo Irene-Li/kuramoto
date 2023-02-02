@@ -20,9 +20,8 @@ class density_field_model:
 		self.d2 = 0 
 		self.d1 = int(self.X - int(self.tau/self.dt))
 		self.psi0 = psi0 + np.random.normal(size=self.X)*noise_amp
-		self.noise_amp = noise_amp
 
-	def evolve(self): 
+	def evolve(self, verbose=False): 
 		start_time = time.time() 
 		self.psi = np.zeros((self.n_batches, self.L))
 		y = np.copy(self.psi0) 
@@ -30,7 +29,7 @@ class density_field_model:
 		batch_size = int(self.T/self.dt)/self.n_batches 
 		n = 0 
 		for i in range(int(self.T/self.dt)): 
-			newy = y[-1] + self._rhs(y)*self.dt + self._noise()
+			newy = y[-1] + self._rhs(y)*self.dt 
 
 			y[0:-1] = y[1:]
 			y[-1] = newy 
@@ -39,15 +38,13 @@ class density_field_model:
 				n += 1 
 
 		end_time = time.time() 
-		print('time taken: ', end_time-start_time)
+		if verbose: 
+			print('time taken: ', end_time-start_time)
 
 
 	def _hill_function(self, psi): 
 		x = psi**self.n
 		return x/(1+x)
-
-	def _noise(self): 
-		return np.random.normal()*np.sqrt(self.dt)*self.noise_amp
 
 	def _rhs(self, y): 
 		pos_feedback = self.mu*self._hill_function(y[self.d1])
@@ -82,11 +79,6 @@ class density_field_1D(density_field_model):
 		self.d2s = (self.X - self.t_es/self.dt).reshape((1, self.L)).astype('int')
 		self.d1s = (self.X - self.taus/self.dt).reshape((1, self.L)).astype('int')
 		self.psi0 = psi0 + np.random.normal(size=(self.X, self.L))*noise_amp
-		self.noise_amp = noise_amp
-
-
-	def _noise(self): 
-		return np.random.normal(size=(self.L))*np.sqrt(self.dt)*self.noise_amp
 
 	def _rhs(self, y): 
 

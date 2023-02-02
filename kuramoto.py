@@ -58,6 +58,7 @@ class Kuramoto():
                         print("time step: {} \n".format(n))
                     n += 1
                 theta = r.integrate(r.t+self.dt*small_batch)
+                theta = theta % (2*np.pi) 
         
     def _coupling(self, theta): 
         return np.sin(theta) + self.gamma*(1-np.cos(theta))

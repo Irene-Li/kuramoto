@@ -6,6 +6,9 @@ from scipy.stats import norm
 from scipy.stats import gamma as gamma_dist
 from matplotlib import pyplot as plt 
 
+
+# ========================================
+
 def find_defects(datasets): 
     for dataset in datasets:
         p = dataset['phase']
@@ -31,6 +34,8 @@ def find_lengths(datasets):
             lengths_wo_defects[i].extend([x for (a, (x, y)) in enumerate(zip(l, p))  if (y == i and a not in d)])
 
     return lengths, lengths_wo_defects
+
+# ==========================================
 
 def process_file(filename): 
     # first, read in the csv files
@@ -147,6 +152,34 @@ def find_turning_points(phases, prominence):
     return np.concatenate([peaks, peaks_2])
 
 
+# == convert between phases and stages =============
+
+# find durations of each stage from [Oakberg 1956] to convert stage to phase 
+durations = np.array([22, 18.1, 8.7, 18.6, 11.3, 18.1, 20.6, 20.8, 15.2, 11.3, 21.4, 20.8])
+boundaries = (np.cumsum(durations))/np.sum(durations)*np.pi*2
+midpoints = (np.cumsum(durations)-durations/2)/np.sum(durations)*np.pi*2
+
+def stage_to_phase(stage): 
+    return midpoints[int(stage)-1]
+
+def phase_to_stage(phase): 
+    return np.searchsorted(boundaries, phase)+1
+
+def is_invalid(x): 
+    return (x < 1) | (x > 12 ) 
+
+def period_average(x, y): 
+    z1 = np.exp(1j*stage_to_phase(x))
+    z2 = np.exp(1j*stage_to_phase(y))
+    theta = np.angle(z1+z2)
+    if theta < 0: 
+        theta += 2*np.pi 
+    return phase_to_stage(theta)
+
+
+# ==================================================
+
+
 def plot(freqs, gamma, sigma):     
     plt.hist(freqs, bins=10, density=True, alpha=0.6, color='g')
     xmin, xmax = plt.xlim()
@@ -206,18 +239,21 @@ def errors(data, map_gamma, map_sigma, alpha, beta):
     return np.sqrt(cov_mat[0, 0]), np.sqrt(cov_mat[1, 1])
 
 
-def plot_posterior(data, alpha, beta):
-    f = lambda x: minus_log_likelihood(data, x) + minus_log_prior(x, alpha, beta)
-    gammas = np.linspace(0, 1, 100)
-    plt.plot(gammas, list(map(f, gammas)))
-    plt.show() 
-    
-    
-def plot_prior(alpha, beta):
+def plot_prior_and_posterior(data, alpha, beta):
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3))
+
     f = lambda x: minus_log_prior(x, alpha, beta)
     gammas = np.linspace(0, 1, 100)
-    plt.plot(gammas, list(map(f, gammas)))
-    plt.show() 
+    axes[0].plot(gammas, list(map(f, gammas)))
+    axes[0].set_title('Prior')
+
+    f = lambda x: minus_log_likelihood(data, x) + minus_log_prior(x, alpha, beta)
+    gammas = np.linspace(0, 1, 100)
+    axes[1].set_title('Posterior')
+    axes[1].plot(gammas, list(map(f, gammas)))  
+    plt.show()   
+
+
 
 
 
