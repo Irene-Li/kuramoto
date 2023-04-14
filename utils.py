@@ -107,18 +107,69 @@ def cost(phi, eta, grad):
     _, b = traj_logpdf(BB)
     ll = b + np.log(d)
     return -np.sum(ll)
+
+def cost_simple(phi, eta, sigma, grad, Cov): 
+    BB, d = find_BB(phi, eta, grad)
+    logpdf = stats.multivariate_normal.logpdf(BB, cov=Cov*sigma*sigma)
+    ll = logpdf + np.log(d)
+    return -np.sum(ll)
     
 def MAP(phi): 
     f = lambda x: cost(phi, x[0], x[1]) 
     res = brute(f, ((-1, 1), (-np.pi, np.pi)))
     return res
 
-def plot_cost(phi, g): 
-    N = 50 
-    etas = np.linspace(-2, 2, N)
+def get_MAP_sigma(phi, eta, grad): 
+    BB, _ = find_BB(phi, eta, grad)
+    var, _ = traj_logpdf(BB)
+    return np.sqrt(var) 
+
+def errors(phi, eta, sigma, grad, tol=1e-4):
+    Cov = get_cov(len(phi)+1)
+    cost_map = cost_simple(phi, eta, sigma, grad, Cov) 
+    x = [eta, sigma, grad] 
+    err = [] 
+    for i in range(3): 
+        x[i] += tol 
+        a = cost_simple(phi, *x, Cov) 
+        x[i] -= tol*2 
+        b = cost_simple(phi, *x, Cov) 
+        x[i] += tol 
+        hess = (a+b-2*cost_map)/(tol**2) # Curvature 
+        err.append(1/np.sqrt(hess))
+    return err 
+
+def plot_cost(phi, eta_map, sigma_map, grad_map):
+    N = 100 
+    Cov = get_cov(len(phi)+1)
+    
+    cost_map = cost_simple(phi, eta_map, sigma_map, grad_map, Cov) 
+    CI = cost_map+1.92
+    
+    fig, axes = plt.subplots(1, 3, sharey=True, figsize=(21, 6))
+    etas = np.linspace(-1, 1, N)
     c= [] 
     for eta in etas: 
-        c.append(cost(phi, eta, grad))
-    plt.plot(etas, c)
-    plt.title('cost')
+        c.append(cost_simple(phi, eta, sigma_map, grad_map, Cov))
+    axes[0].plot(etas, c)
+    axes[0].axhline(y=CI)
+    axes[0].set_xlabel(r'$\eta$')
+    axes[0].set_ylim([cost_map-2, cost_map+10])
+    
+    sigmas = np.linspace(0.001, 1, N)
+    c= [] 
+    for sigma in sigmas: 
+        c.append(cost_simple(phi, eta_map, sigma, grad_map, Cov))
+    axes[1].plot(sigmas, c)
+    axes[1].axhline(y=CI)
+    axes[1].set_xlabel(r'$\sigma$')
+    
+    grads = np.linspace(-np.pi, np.pi, N)
+    c= [] 
+    for g in grads: 
+        c.append(cost_simple(phi, eta_map, sigma_map, g, Cov))
+    axes[2].plot(grads, c)
+    axes[2].axhline(y=CI)
+    axes[2].set_xlabel(r'$g$')
+    
     plt.show()
