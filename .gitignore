@@ -1,13 +1,7 @@
 
 *.mp4
-.ipynb_checkpoints/kuramoto-checkpoint.ipynb
-.ipynb_checkpoints/two_fields-checkpoint.ipynb
-.ipynb_checkpoints/test-checkpoint.ipynb
-.ipynb_checkpoints/linear_stability-checkpoint.ipynb
-.ipynb_checkpoints/dde_test-checkpoint.ipynb
-.ipynb_checkpoints/data_processing-checkpoint.ipynb
+.ipynb_checkpoints*
 data/.DS_Store
 *.pyc
-*.ipynb
 *.pdf
 *.npy
