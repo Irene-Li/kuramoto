@@ -124,52 +124,70 @@ def get_MAP_sigma(phi, eta, grad):
     var, _ = traj_logpdf(BB)
     return np.sqrt(var) 
 
-def errors(phi, eta, sigma, grad, tol=1e-4):
-    Cov = get_cov(len(phi)+1)
-    cost_map = cost_simple(phi, eta, sigma, grad, Cov) 
-    x = [eta, sigma, grad] 
-    err = [] 
-    for i in range(3): 
-        x[i] += tol 
-        a = cost_simple(phi, *x, Cov) 
-        x[i] -= tol*2 
-        b = cost_simple(phi, *x, Cov) 
-        x[i] += tol 
-        hess = (a+b-2*cost_map)/(tol**2) # Curvature 
-        err.append(1/np.sqrt(hess))
-    return err 
-
-def plot_cost(phi, eta_map, sigma_map, grad_map):
-    N = 100 
+def plot_cost(phi, eta_map, sigma_map, grad_map, widths=None, N=100):
     Cov = get_cov(len(phi)+1)
     
     cost_map = cost_simple(phi, eta_map, sigma_map, grad_map, Cov) 
     CI = cost_map+1.92
     
+    if widths is None: 
+        widths = [1, 0.1*sigma_map, np.pi]
+    
     fig, axes = plt.subplots(1, 3, sharey=True, figsize=(21, 6))
-    etas = np.linspace(-1, 1, N)
-    c= [] 
-    for eta in etas: 
-        c.append(cost_simple(phi, eta, sigma_map, grad_map, Cov))
-    axes[0].plot(etas, c)
-    axes[0].axhline(y=CI)
-    axes[0].set_xlabel(r'$\eta$')
-    axes[0].set_ylim([cost_map-2, cost_map+10])
     
-    sigmas = np.linspace(0.001, 1, N)
-    c= [] 
-    for sigma in sigmas: 
-        c.append(cost_simple(phi, eta_map, sigma, grad_map, Cov))
-    axes[1].plot(sigmas, c)
-    axes[1].axhline(y=CI)
-    axes[1].set_xlabel(r'$\sigma$')
-    
-    grads = np.linspace(-np.pi, np.pi, N)
-    c= [] 
-    for g in grads: 
-        c.append(cost_simple(phi, eta_map, sigma_map, g, Cov))
-    axes[2].plot(grads, c)
-    axes[2].axhline(y=CI)
-    axes[2].set_xlabel(r'$g$')
-    
+    x = [eta_map, sigma_map, grad_map]
+    for i in range(3): 
+        params = np.linspace(x[i]-widths[i], x[i]+widths[i], N)
+        c= [] 
+        x_copy = np.copy(x)
+        for p in params: 
+            x_copy[i] = p 
+            c.append(cost_simple(phi, *x_copy, Cov))
+        axes[i].plot(params, c)
+        axes[i].axhline(y=CI)
+        axes[i].set_ylim([cost_map-2, cost_map+10])
     plt.show()
+
+    
+def errors_hess(phi, eta, sigma, grad, diff=1e-4):
+    Cov = get_cov(len(phi)+1)
+    cost_map = cost_simple(phi, eta, sigma, grad, Cov) 
+    x = [eta, sigma, grad] 
+    err = [] 
+    for i in range(3): 
+        x[i] += diff
+        a = cost_simple(phi, *x, Cov) 
+        x[i] -= diff*2 
+        b = cost_simple(phi, *x, Cov) 
+        x[i] += diff 
+        hess = 2*(a+b-2*cost_map)/(diff**2) # Curvature 
+        err.append(1/np.sqrt(hess))
+    return err 
+
+def errors_brute(phi, eta, sigma, grad, diff=None, N=500):
+    Cov = get_cov(len(phi)+1)
+    cost_map = cost_simple(phi, eta, sigma, grad, Cov) 
+    x = [eta, sigma, grad] 
+    err = [] 
+    if diff is None: 
+        diff = [1, 0.1*sigma, np.pi]
+    for i in range(3): 
+        param = np.linspace(x[i]-diff[i], x[i]+diff[i], N)
+        c = [] 
+        x_copy = np.copy(x)
+        for p in param:
+            x_copy[i] = p 
+            c.append(cost_simple(phi, *x_copy, Cov))
+        c = np.array(c) 
+        mask = (c<(cost_map+1.92)).astype('int') 
+        d = mask[1:] - mask[:-1]
+        index1 = np.argwhere(d>0)[0,0]
+        index2 = np.argwhere(d<0)[-1,0]
+        if mask[0] > 0: 
+            index1 = 0 
+        if mask[-1] > 0: 
+            index2 = N 
+        err.append((index2-index1)*(2*diff[i]/N)/2)
+    return err 
+    
+
