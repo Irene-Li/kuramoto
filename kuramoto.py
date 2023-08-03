@@ -14,6 +14,7 @@ class Kuramoto():
         self.sigma = sigma
         self.mean_omega = mean_omega 
         self.BC = BC
+        self._coupling = self._coupling1
         if BC == 'grad': 
             self.grad = grad 
         
@@ -42,16 +43,16 @@ class Kuramoto():
         n = 0 
 
         f = lambda t, x: self._det_rhs(x)
-        r = ode(f).set_integrator('lsoda', rtol=1e-6)
+        r = ode(f).set_integrator('lsoda', rtol=1e-6, first_step=1e-4)
         r.set_initial_value(theta, 0)
 
         for i in tqdm(range(self.n_frames)):
             if r.successful():
                 self.res[i] = theta
                 theta = r.integrate(r.t+self.step_size)
-                theta = theta % (2*np.pi) 
+                theta = theta % (2*np.pi)
         
-    def _coupling(self, theta): 
+    def _coupling1(self, theta): 
         return np.sin(theta) + self.gamma*(1-np.cos(theta))
 
     def _coupling2(self, theta): 
