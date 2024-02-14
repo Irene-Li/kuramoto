@@ -11,7 +11,7 @@ class density_field_model:
 		self.tau = tau 
 		self.te = epsilon + tau 
 
-	def initialise(self, T, dt, n_batches, psi0, noise_amp):
+	def initialise(self, T, dt, n_batches, psi0, noise_amp, pulses=None):
 		self.T = T 
 		self.dt = dt 
 		self.n_batches = n_batches
@@ -20,6 +20,10 @@ class density_field_model:
 		self.d2 = 0 
 		self.d1 = int(self.X - int(self.tau/self.dt))
 		self.psi0 = psi0 + np.random.normal(size=self.X)*noise_amp
+		if pulses == None: 
+			self.pulses = lambda t: 1
+		else: 
+			self.pulses = pulses
 
 	def evolve(self, verbose=False): 
 		start_time = time.time() 
@@ -29,7 +33,7 @@ class density_field_model:
 		batch_size = int(self.T/self.dt)/self.n_batches 
 		n = 0 
 		for i in range(int(self.T/self.dt)): 
-			newy = y[-1] + self._rhs(y)*self.dt 
+			newy = y[-1] + self._rhs(y, i*self.dt)*self.dt 
 
 			y[0:-1] = y[1:]
 			y[-1] = newy 
@@ -46,10 +50,11 @@ class density_field_model:
 		x = psi**self.n
 		return x/(1+x)
 
-	def _rhs(self, y): 
-		pos_feedback = self.mu*self._hill_function(y[self.d1])
+	def _rhs(self, y, t): 
+		pos_feedback = self.mu*self._hill_function(y[self.d1])*self.pulses(t)
 		neg_feedback = self.nu*(1-self._hill_function(y[self.d2]))
 		rhs = pos_feedback + neg_feedback - self.kappa*y[-1]
+		rhs += 1/np.sqrt(self.dt)*1e-3
 
 		return rhs 
 
