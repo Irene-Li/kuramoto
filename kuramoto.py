@@ -77,7 +77,7 @@ class Kuramoto():
 class KuramotoNetwork(Kuramoto): 
 
     def initialise(self, L, T, n_frames, network_matrix, seed=None): 
-        super().initialise(L, T, dt, n_frames, seed=None)
+        super().initialise(L, T, n_frames, seed=None)
         self.M = np.copy(network_matrix)
         self.M += np.eye(L, k=1) + np.eye(L, k=-1)
 
@@ -88,7 +88,6 @@ class KuramotoNetwork(Kuramoto):
                 if self.M[i, j] > 0:
                     d_theta = theta[j] -  theta[i]
                     rhs[i] += self.epsilon*(self._coupling(d_theta))
-        rhs = self._apply_bc(rhs) 
         return rhs 
     
 class Kuramoto2D(Kuramoto): 

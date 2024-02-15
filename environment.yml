@@ -3,7 +3,7 @@ channels:
   - intel
   - defaults
 dependencies:
-  - numpy
+  - numpy=1.22.3
   - scipy
   - matplotlib
   - notebook

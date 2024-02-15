@@ -1,9 +1,10 @@
 import numpy as np 
 import time 
+from numpy.random import MT19937, SeedSequence, RandomState
 
 class density_field_model: 
 
-	def __init__(self, mu=None, nu=None, kappa=None, n=None, tau=None, epsilon=None):
+	def __init__(self, mu, nu, kappa, n, tau, epsilon):
 		self.mu = mu 
 		self.nu = nu 
 		self.kappa = kappa 
@@ -59,7 +60,7 @@ class density_field_model:
 
 class density_field_1D(density_field_model): 
 
-	def __init__(self, mu=None, nu=None, kappa=None, n=None, tau=None, epsilon=None, tau_sigma=None, epsilon_sigma=None, c1=None, c2=None): 
+	def __init__(self, mu, nu, kappa, n, tau, epsilon, tau_sigma, epsilon_sigma, c1, c2): 
 		super().__init__(mu, nu, kappa, n, tau, epsilon)
 		self.epsilon = epsilon 
 		self.tau_sigma = tau_sigma
@@ -67,9 +68,12 @@ class density_field_1D(density_field_model):
 		self.c1 = c1 
 		self.c2 = c2
 
-	def initialise(self, L, T, dt, n_batches, psi0, noise_amp):
-		self.taus = np.random.normal(self.tau, self.tau_sigma, L) 
-		self.t_es= np.random.normal(self.epsilon, self.epsilon_sigma, L) + self.taus  
+	def initialise(self, L, T, dt, n_batches, psi0, noise_amp, seed=None):
+		if seed == None: 
+			seed = np.random.randint(0, 10000)
+		rs = RandomState(MT19937(SeedSequence(seed)))
+		self.taus = rs.normal(self.tau, self.tau_sigma, L) 
+		self.t_es= rs.normal(self.epsilon, self.epsilon_sigma, L) + self.taus  
 
 		self.T = T 
 		self.n_batches = n_batches
@@ -81,9 +85,9 @@ class density_field_1D(density_field_model):
 		self.X = int(max_delay/self.dt)
 		self.d2s = (self.X - self.t_es/self.dt).reshape((1, self.L)).astype('int')
 		self.d1s = (self.X - self.taus/self.dt).reshape((1, self.L)).astype('int')
-		self.psi0 = psi0 + np.random.normal(size=(self.X, self.L))*noise_amp
+		self.psi0 = psi0 + rs.normal(size=(self.X, self.L))*noise_amp
 
-	def _rhs(self, y): 
+	def _rhs(self, y, t): 
 
 		past_psi1 = np.take_along_axis(y, self.d1s, axis=0)[0]
 		past_psi2 = np.take_along_axis(y, self.d2s, axis=0)[0]
@@ -98,3 +102,26 @@ class density_field_1D(density_field_model):
 		rhs = pos_feedback + neg_feedback - self.kappa*y[-1]
 
 		return rhs 
+
+class asym_density_field_1D(density_field_1D):
+    
+    def _rhs(self, y, t):
+        past_psi1 = np.take_along_axis(y, self.d1s, axis=0)[0]
+        past_psi2 = np.take_along_axis(y, self.d2s, axis=0)[0]
+        
+        h1 = self._hill_function(past_psi1 + self.c1*self._roll(past_psi1))
+        h2 = self._hill_function(past_psi2 + self.c2*self._roll(past_psi2))
+
+        pos_feedback = self.mu*(h1)
+        neg_feedback = self.nu*(1 - h2)
+
+        rhs = pos_feedback + neg_feedback - self.kappa*y[-1]
+
+        return rhs 
+    
+    def _roll(self,  psi): 
+        n1 = np.roll(psi, 1)
+        n1[0] = 0
+        n2 = np.roll(psi, -1)
+        n2[-1] = 0
+        return n1 + n2 

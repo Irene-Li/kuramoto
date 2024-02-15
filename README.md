@@ -2,7 +2,9 @@
 
 This repository contains all the code used in (insert paper title), including: 
 - Simulation and inference of the Sakaguchi-Kuramoto(SK) model in 1D.
-- Theory for persistent oscillations of retinoic acid concentration. 
+- Theory for persistent oscillations of retinoic acid concentration.
+
+To install the current packages, you can either use `conda` to setup a local python environment using `environment.yml` or install all the dependencies listed in `environment.yml` manually. 
 
 ## Notebooks used to plot figures and perform analysis in the SI of (insert paper title)
 1. `kuramoto1D_sims.ipynb`: simulations of 1D SK model with various parameters, including the inferred MAP parameters.
