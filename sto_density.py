@@ -54,8 +54,6 @@ class density_field_model:
 		pos_feedback = self.mu*self._hill_function(y[self.d1])*self.pulses(t)
 		neg_feedback = self.nu*(1-self._hill_function(y[self.d2]))
 		rhs = pos_feedback + neg_feedback - self.kappa*y[-1]
-		rhs += 1/np.sqrt(self.dt)*1e-3
-
 		return rhs 
 
 

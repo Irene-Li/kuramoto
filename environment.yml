@@ -1,0 +1,11 @@
+name: kuramoto
+channels:
+  - intel
+  - defaults
+dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  - notebook
+  - pandas
+  - tqdm
