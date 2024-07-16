@@ -74,6 +74,55 @@ class Kuramoto():
         rhs = self._apply_bc(rhs, theta) 
         return rhs 
 
+class KuramotoNNN(Kuramoto): 
+
+    def __init__(self, epsilon, gamma, sigma, mean_omega, alpha=1, BC="PBC", grad=None):
+        if BC != 'grad': 
+            print('unsupported BC')
+        super().__init__(epsilon, gamma, sigma, mean_omega, BC, grad)
+        self.alpha = alpha
+
+    def _det_rhs(self, theta): 
+        d_theta = theta[1:]-theta[:-1]
+        d_theta = np.concatenate([[self.grad[0]], d_theta, [self.grad[1]]])
+        d_theta2 = d_theta[1:]+d_theta[:-1]
+        d_theta2 = np.concatenate([[2*self.grad[0]], d_theta2, [2*self.grad[1]]])
+        
+        nn = self._coupling(d_theta[1:]) + self._coupling(-d_theta[:-1])
+        nnn = self._coupling(d_theta2[2:]) + self._coupling(-d_theta2[:-2]) 
+        rhs = self.epsilon*(nn + self.alpha*nnn)+self.omegas
+        return rhs 
+    
+class KuramotoVF(Kuramoto): 
+    
+    def __init__(self, epsilon, gamma, sigma, mean_omega, noise=0.01, BC="PBC", grad=None):
+        super().__init__(epsilon, gamma, sigma, mean_omega, BC, grad)
+        self.noise = noise 
+    
+    def evolve(self, dt=1e-2):
+        # The core function that integrates the ODEs forward. 
+        
+        self.res = np.zeros((self.n_frames, self.size))
+        theta = np.copy(self.initial_state) 
+
+        f = lambda t, x: self._rhs(x)
+        for i in tqdm(range(self.n_frames)):
+            for j in range(int(self.step_size/dt)): 
+                theta += self._rhs(theta, dt)                
+            theta = theta % (2*np.pi) 
+            self.res[i] = theta
+                
+    def _rhs(self, theta, dt): 
+        d_theta_1 = np.roll(theta, 1) - theta 
+        d_theta_2 = np.roll(theta, -1) - theta 
+    
+        rhs = self.epsilon*(self._coupling(d_theta_1)+self._coupling(d_theta_2))+self.omegas
+        rhs = self._apply_bc(rhs, theta) 
+        rhs *= dt 
+        rhs += np.sqrt(dt)*self.noise*np.random.normal(size=(self.L))
+        return rhs 
+
+        
 class KuramotoNetwork(Kuramoto): 
 
     def initialise(self, L, T, n_frames, network_matrix, seed=None): 
@@ -121,9 +170,9 @@ class Kuramoto2D(Kuramoto):
         coupling = sum(map(self._coupling, d_thetas))
         rhs = self.epsilon*coupling + self.omegas
         if self.BC == "fixed": 
-            rhs[0, :] = 0 
-            rhs[-1, :] = 0
+            rhs[0] = 0 
+            rhs[-1] = 0
         if self.BC == "grad": 
-            rhs[0] += self.epsilon*(self._coupling(-self.grad[0])-self._coupling(theta[-1]-theta[0]))
-            rhs[-1] += self.epsilon*(self._coupling(self.grad[1])-self._coupling(theta[0]-theta[1]))   
+            rhs[0] = self.omegas[0] + self.epsilon*(self._coupling(-self.grad[0])+self._coupling(theta[1]-theta[0]))
+            rhs[-1] = self.omegas[-1] +self.epsilon*(self._coupling(self.grad[1])+self._coupling(theta[-2]-theta[-1]))   
         return rhs.flatten()
