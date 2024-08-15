@@ -125,3 +125,13 @@ class asym_density_field_1D(density_field_1D):
         n2 = np.roll(psi, -1)
         n2[-1] = 0
         return n1 + n2 
+    
+class sto_asym_density_field_1D(asym_density_field_1D): 
+    
+    def __init__(self, mu, nu, kappa, n, tau, epsilon, tau_sigma, epsilon_sigma, c1, c2, sigma): 
+        super().__init__(mu, nu, kappa, n, tau, epsilon, tau_sigma, epsilon_sigma, c1, c2)
+        self.sigma = sigma 
+        
+    def _rhs(self, y, t): 
+        noise = self.sigma/np.sqrt(self.dt)*np.random.normal(size=self.L)
+        return super()._rhs(y, t) + noise   
