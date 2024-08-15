@@ -105,7 +105,6 @@ class KuramotoVF(Kuramoto):
         self.res = np.zeros((self.n_frames, self.size))
         theta = np.copy(self.initial_state) 
 
-        f = lambda t, x: self._rhs(x)
         for i in tqdm(range(self.n_frames)):
             for j in range(int(self.step_size/dt)): 
                 theta += self._rhs(theta, dt)                
