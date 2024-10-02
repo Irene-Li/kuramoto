@@ -6,3 +6,5 @@ data/.DS_Store
 *.pdf
 *.npy
 .DS_Store
+Figures/.DS_Store
+Sims/
